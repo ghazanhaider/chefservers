@@ -28,7 +28,7 @@ Vagrant.configure("2") do |config|
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine and only allow access
   # via 127.0.0.1 to disable public access
-   config.vm.network "forwarded_port", guest: 443, host: 8443 #, host_ip: "127.0.0.1"
+  # config.vm.network "forwarded_port", guest: 443, host: 8443 #, host_ip: "127.0.0.1"
 
   # Create a private network, which allows host-only access to the machine
   # using a specific IP.
@@ -37,8 +37,8 @@ Vagrant.configure("2") do |config|
   # Create a public network, which generally matched to bridged network.
   # Bridged networks make the machine appear as another physical device on
   # your network.
-  config.vm.hostname = "chefserver01.ghazan.work"
-  config.vm.network "public_network", ip: "10.0.0.21"
+  config.vm.hostname = "client2.ghazan.work"
+  config.vm.network "public_network", ip: "10.0.0.31"
 
   # Share an additional folder to the guest VM. The first argument is
   # the path on the host to the actual folder. The second argument is
@@ -55,7 +55,7 @@ Vagrant.configure("2") do |config|
   #   vb.gui = true
   #
      # Customize the amount of memory on the VM:
-     vb.memory = "16384"
+     vb.memory = "2048"
    end
   #
   # View the documentation for the provider you are using for more
@@ -64,5 +64,23 @@ Vagrant.configure("2") do |config|
   # Enable provisioning with a shell script. Additional provisioners such as
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
-   config.vm.provision "shell", env: {"PASSWORD" => ENV['PASSWORD']}, path: "script.sh"
+   config.vm.provision "shell", inline: <<-SHELL
+     #apt-get update
+     wget -nv https://packages.chef.io/files/stable/chef/15.2.20/ubuntu/16.04/chef_15.2.20-1_amd64.deb
+     dpkg -i chef_15.2.20-1_amd64.deb
+     mkdir /etc/chef
+     cp /vagrant/myorg-validator.pem /etc/chef/
+     echo '{"run_list":[]}' > /etc/chef/first-boot.json
+     cat << ClientRB > /etc/chef/client.rb
+log_level        :auto
+log_location     "/tmp/first-chef-client-run.log"
+chef_server_url  "https://10.0.0.21/organizations/myorg"
+validation_client_name "myorg-validator"
+validation_key   "/etc/chef/myorg-validator.pem"
+chef_license 'accept'
+ssl_verify_mode  :verify_none
+ClientRB
+     chef-client -j /etc/chef/first-boot.json #--environment production
+
+   SHELL
 end
